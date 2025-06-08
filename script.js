@@ -172,10 +172,10 @@ fetch(SHEET_DATA_URL)
 
     console.log('Filtered allTasks (excluding completed): / Tareas filtradas (excluyendo completadas):', JSON.parse(JSON.stringify(allTasks)));
 
-    // taskMap is now populated by UID
+    // taskMap is now populated by 'UID'
     taskMap = {};
     allTasks.forEach(t => {
-      taskMap[t['UID']] = t; // Use UID as the key for taskMap
+      taskMap[t['UID']] = t; // Use 'UID' as the key for taskMap
     });
 
     const event = new Event('tasksLoaded');
@@ -228,7 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const submit = document.getElementById('submit-btn');
   if (submit) {
     submit.addEventListener('click', () => {
-      if (!currentRow || !currentRow['UID']) { // Check for the UID
+      // Check for the 'UID' column from your Google Sheet
+      if (!currentRow || !currentRow['UID']) {
           console.error("Current task data is not available or 'UID' is missing. / Datos de la tarea actual no disponibles o falta 'UID'.");
           alert("Error: No task selected or task data is incomplete (missing UID). / Error: Ninguna tarea seleccionada o datos de la tarea incompletos (falta UID).");
           return;
@@ -237,7 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // --- CRITICAL CHANGE FOR SHEETDB UPDATE ---
       // Use the 'UID' as the identifier in the URL
       const taskUID = currentRow['UID'];
-      // The column name is 'UID', so no need for encodeURIComponent for the column name itself
+      // The column name is 'UID', so no need for encoding the column name itself.
+      // encodeURIComponent is still used for the value to handle any potential special characters.
       const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID=${encodeURIComponent(taskUID)}`;
       console.log("Update URL for SheetBest (using UID): / URL de actualización para SheetBest (usando UID):", updateUrl);
 
