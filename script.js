@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Body being sent to SheetBest for PATCH: / Cuerpo enviado a SheetBest para PATCH:', JSON.stringify(dataToUpdate));
 
       fetch(updateUrl, {
-        method: 'PATCH',
+        method: 'PUT',
         mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
