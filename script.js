@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Failed to update task via SheetBest: ' + error.message + '\nCheck console for details. / Falló la actualización de la tarea vía SheetBest: ' + error.message + '\nConsultar consola para detalles.');
       });
     });
-  }
+  
 
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) {
