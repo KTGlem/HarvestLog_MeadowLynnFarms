@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const taskUID = currentRow['UID'];
       // The column name is 'UID', so no need for encoding the column name itself.
       // encodeURIComponent is still used for the value to handle any potential special characters.
-      const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID=${encodeURIComponent(taskUID)}`;
+      const updateUrl = `${SHEETBEST_CONNECTION_URL}/search?UID=${encodeURIComponent(taskUID)}`;
       console.log("Update URL for SheetBest (using UID): / URL de actualización para SheetBest (usando UID):", updateUrl);
 
       const harvestTimeValue = document.getElementById('harvestTime').value;
