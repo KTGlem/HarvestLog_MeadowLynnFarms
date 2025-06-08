@@ -227,81 +227,85 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const submit = document.getElementById('submit-btn');
   if (submit) {
-    
     submit.addEventListener('click', () => {
+      // Check for the 'UID' column from your Google Sheet
       if (!currentRow || !currentRow['UID']) {
-        alert("Error: No task selected or missing UID.");
-        return;
+          console.error("Current task data is not available or 'UID' is missing. / Datos de la tarea actual no disponibles o falta 'UID'.");
+          alert("Error: No task selected or task data is incomplete (missing UID). / Error: Ninguna tarea seleccionada o datos de la tarea incompletos (falta UID).");
+          return;
       }
 
+      // --- CRITICAL CHANGE FOR SHEETDB UPDATE ---
+      // Use the 'UID' as the identifier in the URL
       const taskUID = currentRow['UID'];
-      const searchUrl = `${SHEETBEST_CONNECTION_URL}/search`;
+      // The column name is 'UID', so no need for encoding the column name itself.
+      // encodeURIComponent is still used for the value to handle any potential special characters.
+      const updateUrl = `${SHEETBEST_CONNECTION_URL}/id/${internalId}?return_values=true`;
+      console.log("Update URL for SheetBest (using UID): / URL de actualización para SheetBest (usando UID):", updateUrl);
 
-      fetch(searchUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ UID: taskUID })
-      })
-      .then(res => res.json())
-      .then(results => {
-        if (!results || !results[0] || !results[0].id) {
-          throw new Error("No matching record found for UID: " + taskUID);
-        }
+      const harvestTimeValue = document.getElementById('harvestTime').value;
+      const weightValue = document.getElementById('weight').value;
+      const washPackTimeValue = document.getElementById('washPackTime').value;
+      const assigneeValue = document.getElementById('assignee').value;
+      const notesValue = document.getElementById('notes').value;
 
-        const internalId = results[0].id;
-        const updateUrl = `${SHEETBEST_CONNECTION_URL}/id/${internalId}?return_values=true`;
+      const dataToUpdate = {
+        'Assignee(s)': assigneeValue,
+        'Field Crew Notes': notesValue
+      };
 
-        const harvestTimeValue = document.getElementById('harvestTime').value;
-        const weightValue = document.getElementById('weight').value;
-        const washPackTimeValue = document.getElementById('washPackTime').value;
-        const assigneeValue = document.getElementById('assignee').value;
-        const notesValue = document.getElementById('notes').value;
+      const isBeingCompleted = (harvestTimeValue && harvestTimeValue.trim() !== "") ||
+                              (weightValue && weightValue.trim() !== "") ||
+                              (washPackTimeValue && washPackTimeValue.trim() !== "");
 
-        const dataToUpdate = {
-          'Assignee(s)': assigneeValue,
-          'Field Crew Notes': notesValue
-        };
+      if (isBeingCompleted) {
+        dataToUpdate['Time to Harvest (min)'] = harvestTimeValue;
+        dataToUpdate['Harvest Weight (kg)'] = weightValue;
+        dataToUpdate['Time to Wash & Pack (mins)'] = washPackTimeValue;
+        dataToUpdate['Status'] = 'Completed';
+        // Decide if you want to update 'Harvest Date' to the completion date or keep the planned date.
+        // If you want to log completion time, consider a new column like 'Completion Date'.
+        // For now, we're not overwriting 'Harvest Date' if it's meant to be the *planned* date.
+        // dataToUpdate['Harvest Date'] = new Date().toISOString();
+      } else if (assigneeValue.trim() !== "") {
+        dataToUpdate['Status'] = 'Assigned';
+      } else if (assigneeValue.trim() === "" && notesValue.trim() === "" && !isBeingCompleted) {
+        dataToUpdate['Status'] = '';
+      }
 
-        const isBeingCompleted = (harvestTimeValue && harvestTimeValue.trim() !== "") ||
-                                  (weightValue && weightValue.trim() !== "") ||
-                                  (washPackTimeValue && washPackTimeValue.trim() !== "");
+      console.log('Body being sent to SheetBest for PATCH: / Cuerpo enviado a SheetBest para PATCH:', JSON.stringify(dataToUpdate));
 
-        if (isBeingCompleted) {
-          dataToUpdate['Time to Harvest (min)'] = harvestTimeValue;
-          dataToUpdate['Harvest Weight (kg)'] = weightValue;
-          dataToUpdate['Time to Wash & Pack (mins)'] = washPackTimeValue;
-          dataToUpdate['Status'] = 'Completed';
-        } else if (assigneeValue.trim() !== "") {
-          dataToUpdate['Status'] = 'Assigned';
-        } else {
-          dataToUpdate['Status'] = '';
-        }
-
-        return fetch(updateUrl, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dataToUpdate)
-        });
+      fetch(updateUrl, {
+        method: 'PATCH',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          // 'X-Api-Key': 'YOUR_SHEETBEST_API_KEY' // If required
+        },
+        body: JSON.stringify(dataToUpdate)
       })
       .then(response => {
+        // --- FIX FOR "body stream already read" ERROR ---
         if (!response.ok) {
-          return response.text().then(text => {
-            throw new Error(`PATCH failed: ${text}`);
-          });
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('✅ PATCH successful:', data);
-        alert('✅ Task updated successfully!');
-        location.reload();
-      })
-      .catch(error => {
-        console.error('❌ PATCH error:', error);
-        alert('❌ Update failed: ' + error.message);
-      });
-    });
+          return response.text().then(text => { // Read body as text once
+            let errorData;
+            try {
+                errorData = JSON.parse(text); // Attempt to parse as JSON
+            } catch (e) {
+                errorData = text; // If not JSON, use raw text
+            }
 
+            let errorMessage = `HTTP error! Status: ${response.status}. / ¡Error HTTP! Estado: ${response.status}. `;
+            if (typeof errorData === 'string') {
+                errorMessage += `Response: ${errorData} / Respuesta: ${errorData}`;
+            } else if (errorData && (errorData.message || errorData.detail)) {
+                errorMessage += `Error: ${errorData.message || errorData.detail} / Error: ${errorData.message || errorData.detail}`;
+                if(errorData.errors) errorMessage += ` Details: ${JSON.stringify(errorData.errors)} / Detalles: ${JSON.stringify(errorData.errors)}`;
+            } else {
+                errorMessage += `Could not parse error response from SheetBest. Raw: ${JSON.stringify(errorData)} / No se pudo analizar la respuesta de error de SheetBest. Crudo: ${JSON.stringify(errorData)}`;
+            }
+            throw new Error(errorMessage);
+          });
         }
         return response.json(); // Only parse as JSON if response is OK
       })
@@ -315,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Failed to update task via SheetBest: ' + error.message + '\nCheck console for details. / Falló la actualización de la tarea vía SheetBest: ' + error.message + '\nConsultar consola para detalles.');
       });
     });
-  
+  }
 
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) {
