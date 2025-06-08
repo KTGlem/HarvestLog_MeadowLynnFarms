@@ -275,46 +275,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
       console.log('Body being sent to SheetBest for PATCH: / Cuerpo enviado a SheetBest para PATCH:', JSON.stringify(dataToUpdate));
 
-      fetch(updateUrl, {
-        method: 'PUT',
-        mode: 'cors',
+      
+      // Step 1: POST to /search to get internal ID
+      const searchUrl = `${SHEETBEST_CONNECTION_URL}/search`;
+      const updateData = { UID: taskUID };
+
+      fetch(searchUrl, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 'X-Api-Key': 'YOUR_SHEETBEST_API_KEY' // If required
         },
-        body: JSON.stringify(dataToUpdate)
+        body: JSON.stringify(updateData)
+      })
+      .then(res => res.json())
+      .then(results => {
+        if (!results || !results[0] || !results[0].id) {
+          throw new Error('No matching record found for UID.');
+        }
+
+        const internalId = results[0].id;
+        const patchUrl = `${SHEETBEST_CONNECTION_URL}/id/${internalId}`;
+        console.log('PATCH URL:', patchUrl);
+
+        return fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(dataToUpdate)
+        });
       })
       .then(response => {
-        // --- FIX FOR "body stream already read" ERROR ---
         if (!response.ok) {
-          return response.text().then(text => { // Read body as text once
-            let errorData;
-            try {
-                errorData = JSON.parse(text); // Attempt to parse as JSON
-            } catch (e) {
-                errorData = text; // If not JSON, use raw text
-            }
-
-            let errorMessage = `HTTP error! Status: ${response.status}. / ¡Error HTTP! Estado: ${response.status}. `;
-            if (typeof errorData === 'string') {
-                errorMessage += `Response: ${errorData} / Respuesta: ${errorData}`;
-            } else if (errorData && (errorData.message || errorData.detail)) {
-                errorMessage += `Error: ${errorData.message || errorData.detail} / Error: ${errorData.message || errorData.detail}`;
-                if(errorData.errors) errorMessage += ` Details: ${JSON.stringify(errorData.errors)} / Detalles: ${JSON.stringify(errorData.errors)}`;
-            } else {
-                errorMessage += `Could not parse error response from SheetBest. Raw: ${JSON.stringify(errorData)} / No se pudo analizar la respuesta de error de SheetBest. Crudo: ${JSON.stringify(errorData)}`;
-            }
-            throw new Error(errorMessage);
+          return response.text().then(text => {
+            throw new Error('PATCH failed: ' + text);
           });
         }
-        return response.json(); // Only parse as JSON if response is OK
+        return response.json();
       })
       .then(data => {
-        console.log('Successfully PATCHed row via SheetBest: / Fila PATCHADA con éxito vía SheetBest:', data);
-        alert('Task updated successfully via SheetBest! / ¡Tarea actualizada con éxito vía SheetBest!');
+        console.log('✅ Successfully PATCHed via SheetDB:', data);
+        alert('✅ Task updated successfully!');
         location.reload();
       })
       .catch(error => {
+        console.error('❌ Error:', error);
+        alert('❌ Failed to update: ' + error.message);
+      });
+.catch(error => {
         console.error('Error PATCHing row via SheetBest: / Error al PATCHAR fila vía SheetBest:', error);
         alert('Failed to update task via SheetBest: ' + error.message + '\nCheck console for details. / Falló la actualización de la tarea vía SheetBest: ' + error.message + '\nConsultar consola para detalles.');
       });
