@@ -46,7 +46,7 @@ function renderTasks(tasksToRender) {
       <strong>${task['Crop'] || 'N/A'}</strong><br>
       <strong>Location / Ubicación:</strong> ${task['Location'] || '-'}<br>
       <strong>Quantity / Cantidad:</strong> ${task['Units to Harvest'] || 'N/A'} ${task['Harvest Units'] || ''}<br>
-      <strong>Assigned To / Asignado a:</strong> ${task['Assignee(s)'] || 'Unassigned / Sin asignar'}<br>
+      <strong>Assigned To / Asignado a:</strong> ${task['Assignee'] || 'Unassigned / Sin asignar'}<br>
       <button onclick="openForm('${task['UID'] || ''}')">Open / Abrir</button>
     `;
     container.appendChild(div);
@@ -79,7 +79,7 @@ function openForm(taskUID) {
     <span>Online / En línea: ${task['Online'] || 0}</span>
   `;
 
-  document.getElementById('assignee').value = task['Assignee(s)'] || '';
+  document.getElementById('assignee').value = task['Assignee'] || '';
   document.getElementById('harvestTime').value = task['Time to Harvest (min)'] || ''; // Pre-fill if data exists
   document.getElementById('weight').value = task['Harvest Weight (kg)'] || ''; // Pre-fill if data exists
   document.getElementById('washPackTime').value = task['Time to Wash & Pack (mins)'] || ''; // Pre-fill if data exists
@@ -250,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const notesValue = document.getElementById('notes').value;
 
       const dataToUpdate = {
-        'Assignee(s)': assigneeValue,
+        'Assignee': assigneeValue,
         'Field Crew Notes': notesValue
       };
 
