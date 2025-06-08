@@ -41,12 +41,13 @@ function renderTasks(tasksToRender) {
   tasksToRender.forEach(task => {
     const div = document.createElement('div');
     div.className = 'task-card';
+    // Changed openForm to use task['UID'] for unique identification
     div.innerHTML = `
       <strong>${task['Crop'] || 'N/A'}</strong><br>
       <strong>Location / Ubicación:</strong> ${task['Location'] || '-'}<br>
       <strong>Quantity / Cantidad:</strong> ${task['Units to Harvest'] || 'N/A'} ${task['Harvest Units'] || ''}<br>
       <strong>Assigned To / Asignado a:</strong> ${task['Assignee(s)'] || 'Unassigned / Sin asignar'}<br>
-      <button onclick="openForm(${task._row || 0})">Open / Abrir</button>
+      <button onclick="openForm('${task['UID'] || ''}')">Open / Abrir</button>
     `;
     container.appendChild(div);
   });
@@ -55,20 +56,20 @@ function renderTasks(tasksToRender) {
 // --------------------
 // RENDER: DETAIL VIEW
 // --------------------
-function openForm(rowId) {
-  const task = taskMap[rowId];
+// Modified openForm to accept UID instead of rowId
+function openForm(taskUID) {
+  const task = allTasks.find(t => t['UID'] === taskUID); // Find task by UID
   if (!task) {
-      console.error("Task not found for rowId: / Tarea no encontrada para rowId:", rowId);
+      console.error("Task not found for UID: / Tarea no encontrada para UID:", taskUID);
       return;
   }
 
-  currentRow = task;
-  document.getElementById('detail-title').innerText = task['Crop'] || 'N/A'; // Crop name handled by sheet data
+  currentRow = task; // Set currentRow to the found task object
+  document.getElementById('detail-title').innerText = task['Crop'] || 'N/A';
   document.getElementById('detail-location').innerText = task['Location'] || '-';
   document.getElementById('detail-quantity').innerText = `${task['Units to Harvest'] || 'N/A'} ${task['Harvest Units'] || ''}`;
 
   const breakdown = document.getElementById('sales-breakdown');
-  // Assuming CSV keys remain in English. If CSV keys change, this needs adjustment.
   breakdown.innerHTML = `
     <strong>Sales Breakdown / Desglose de Ventas:</strong>
     <span>CSA / CSA: ${task['CSA'] || 0}</span>
@@ -79,10 +80,11 @@ function openForm(rowId) {
   `;
 
   document.getElementById('assignee').value = task['Assignee(s)'] || '';
-  document.getElementById('harvestTime').value = '';
-  document.getElementById('weight').value = '';
-  document.getElementById('washPackTime').value = '';
-  document.getElementById('notes').value = '';
+  document.getElementById('harvestTime').value = task['Time to Harvest (min)'] || ''; // Pre-fill if data exists
+  document.getElementById('weight').value = task['Harvest Weight (kg)'] || ''; // Pre-fill if data exists
+  document.getElementById('washPackTime').value = task['Time to Wash & Pack (mins)'] || ''; // Pre-fill if data exists
+  document.getElementById('notes').value = task['Field Crew Notes'] || ''; // Pre-fill if data exists
+
 
   document.getElementById('detail-form').style.display = 'block';
 }
@@ -138,10 +140,10 @@ fetch(SHEET_DATA_URL)
       headers.forEach((h, j) => {
         const key = h.trim();
         let value = row[j] ? row[j].trim().replace(/^"|"$/g, '') : '';
-        if (key === 'Harvest Date') { // Assuming 'Harvest Date' header remains in English in CSV
+        if (key === 'Harvest Date') {
             value = normalizeDate(value);
         }
-        if (key === 'Location') { // Assuming 'Location' header remains in English in CSV
+        if (key === 'Location') {
           obj[key] = value;
           const matches = [...value.matchAll(/(\d+)(?:\s*\(([^)]+)\))?/g)];
           obj['_parsedLocations'] = matches.flatMap(m => {
@@ -153,26 +155,27 @@ fetch(SHEET_DATA_URL)
           obj[key] = value;
         }
       });
-      obj._row = i + 2;
+      obj._row = i + 2; // This _row is for reference, not directly used for SheetDB update
       return obj;
     });
 
     console.log('All Parsed Tasks (before filter): / Todas las tareas analizadas (antes del filtro):', JSON.parse(JSON.stringify(parsedTasks)));
 
     allTasks = parsedTasks.filter(row =>
-      row['Crop'] && // Assuming 'Crop' header remains in English
-      row['Harvest Date'] && // Assuming 'Harvest Date' header remains in English (and value is normalized date)
+      row['Crop'] &&
+      row['Harvest Date'] &&
       row['Harvest Date'] !== '' &&
-      (row['Status'] !== 'Completed') && // Assuming 'Status' header remains in English
-      !isNaN(parseFloat(row['Units to Harvest'])) && // Assuming 'Units to Harvest' header remains in English
+      (row['Status'] !== 'Completed') &&
+      !isNaN(parseFloat(row['Units to Harvest'])) &&
       parseFloat(row['Units to Harvest']) > 0
     );
 
     console.log('Filtered allTasks (excluding completed): / Tareas filtradas (excluyendo completadas):', JSON.parse(JSON.stringify(allTasks)));
-    
+
+    // taskMap is now populated by UID
     taskMap = {};
     allTasks.forEach(t => {
-      taskMap[t._row] = t;
+      taskMap[t['UID']] = t; // Use UID as the key for taskMap
     });
 
     const event = new Event('tasksLoaded');
@@ -185,9 +188,9 @@ fetch(SHEET_DATA_URL)
     if (container) {
         container.innerHTML = `<p style="color: red;">Error loading tasks: ${error.message}. Please try again later. / Error al cargar tareas: ${error.message}. Por favor, inténtalo de nuevo más tarde.</p>`;
     }
-    allTasks = []; 
+    allTasks = [];
     taskMap = {};
-    const event = new Event('tasksLoaded'); 
+    const event = new Event('tasksLoaded');
     document.dispatchEvent(event);
   });
 
@@ -204,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log("Tasks loaded event received, attempting initial render for date: / Evento de tareas cargadas recibido, intentando renderizado inicial para la fecha:", dateInput.value);
       const tasksToFilter = Array.isArray(allTasks) ? allTasks : [];
       const filteredTasks = tasksToFilter.filter(row => {
-          const normalizedRowDate = normalizeDate(row['Harvest Date']); // Assumes 'Harvest Date' header
+          const normalizedRowDate = normalizeDate(row['Harvest Date']);
           return normalizedRowDate === dateInput.value;
       });
       renderTasks(filteredTasks);
@@ -215,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log("Date changed to: / Fecha cambiada a:", selectedDate, "attempting to re-render. / intentando re-renderizar.");
       const tasksToFilter = Array.isArray(allTasks) ? allTasks : [];
       const filteredTasks = tasksToFilter.filter(row => {
-          const normalizedRowDate = normalizeDate(row['Harvest Date']); // Assumes 'Harvest Date' header
+          const normalizedRowDate = normalizeDate(row['Harvest Date']);
           return normalizedRowDate === selectedDate;
       });
       renderTasks(filteredTasks);
@@ -225,21 +228,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const submit = document.getElementById('submit-btn');
   if (submit) {
     submit.addEventListener('click', () => {
-      if (!currentRow || typeof currentRow._row === 'undefined') {
-          console.error("Current row data is not available or _row is missing. / Datos de la fila actual no disponibles o falta _row.");
-          alert("Error: No task selected or task data is incomplete. / Error: Ninguna tarea seleccionada o datos de la tarea incompletos.");
+      if (!currentRow || !currentRow['UID']) { // Check for the UID
+          console.error("Current task data is not available or 'UID' is missing. / Datos de la tarea actual no disponibles o falta 'UID'.");
+          alert("Error: No task selected or task data is incomplete (missing UID). / Error: Ninguna tarea seleccionada o datos de la tarea incompletos (falta UID).");
           return;
       }
 
-      const sheetBestRowIndex = currentRow._row - 2; 
-      if (sheetBestRowIndex < 0) {
-          console.error("Calculated invalid SheetBest row index: / Índice de fila de SheetBest inválido calculado:", sheetBestRowIndex, "from currentRow._row:", currentRow._row);
-          alert("Error: Invalid row index for update. / Error: Índice de fila inválido para la actualización.");
-          return;
-      }
-
-      const updateUrl = `${SHEETBEST_CONNECTION_URL}/${sheetBestRowIndex}`;
-      console.log("Update URL for SheetBest: / URL de actualización para SheetBest:", updateUrl);
+      // --- CRITICAL CHANGE FOR SHEETDB UPDATE ---
+      // Use the 'UID' as the identifier in the URL
+      const taskUID = currentRow['UID'];
+      // The column name is 'UID', so no need for encodeURIComponent for the column name itself
+      const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID=${encodeURIComponent(taskUID)}`;
+      console.log("Update URL for SheetBest (using UID): / URL de actualización para SheetBest (usando UID):", updateUrl);
 
       const harvestTimeValue = document.getElementById('harvestTime').value;
       const weightValue = document.getElementById('weight').value;
@@ -248,9 +248,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const notesValue = document.getElementById('notes').value;
 
       const dataToUpdate = {
-        // Keys here MUST EXACTLY MATCH your Google Sheet column headers that you want to update
-        'Assignee(s)': assigneeValue, // Assumes 'Assignee(s)' header in sheet
-        'Field Crew Notes': notesValue // Assumes 'Field Crew Notes' header in sheet
+        'Assignee(s)': assigneeValue,
+        'Field Crew Notes': notesValue
       };
 
       const isBeingCompleted = (harvestTimeValue && harvestTimeValue.trim() !== "") ||
@@ -258,15 +257,18 @@ document.addEventListener('DOMContentLoaded', () => {
                               (washPackTimeValue && washPackTimeValue.trim() !== "");
 
       if (isBeingCompleted) {
-        dataToUpdate['Time to Harvest (min)'] = harvestTimeValue; // Assumes 'Time to Harvest (min)' header
-        dataToUpdate['Harvest Weight (kg)'] = weightValue;     // Assumes 'Harvest Weight (kg)' header
-        dataToUpdate['Time to Wash & Pack (mins)'] = washPackTimeValue; // Assumes 'Time to Wash & Pack (mins)' header
-        dataToUpdate['Status'] = 'Completed';                       // Assumes 'Status' header
-        dataToUpdate['Harvest Date'] = new Date().toISOString();      // Assumes 'Harvest Date' header for completion timestamp
+        dataToUpdate['Time to Harvest (min)'] = harvestTimeValue;
+        dataToUpdate['Harvest Weight (kg)'] = weightValue;
+        dataToUpdate['Time to Wash & Pack (mins)'] = washPackTimeValue;
+        dataToUpdate['Status'] = 'Completed';
+        // Decide if you want to update 'Harvest Date' to the completion date or keep the planned date.
+        // If you want to log completion time, consider a new column like 'Completion Date'.
+        // For now, we're not overwriting 'Harvest Date' if it's meant to be the *planned* date.
+        // dataToUpdate['Harvest Date'] = new Date().toISOString();
       } else if (assigneeValue.trim() !== "") {
-        dataToUpdate['Status'] = 'Assigned';                        // Assumes 'Status' header
+        dataToUpdate['Status'] = 'Assigned';
       } else if (assigneeValue.trim() === "" && notesValue.trim() === "" && !isBeingCompleted) {
-        dataToUpdate['Status'] = '';                                // Assumes 'Status' header
+        dataToUpdate['Status'] = '';
       }
 
       console.log('Body being sent to SheetBest for PATCH: / Cuerpo enviado a SheetBest para PATCH:', JSON.stringify(dataToUpdate));
@@ -281,8 +283,16 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify(dataToUpdate)
       })
       .then(response => {
+        // --- FIX FOR "body stream already read" ERROR ---
         if (!response.ok) {
-          return response.json().catch(() => response.text()).then(errorData => {
+          return response.text().then(text => { // Read body as text once
+            let errorData;
+            try {
+                errorData = JSON.parse(text); // Attempt to parse as JSON
+            } catch (e) {
+                errorData = text; // If not JSON, use raw text
+            }
+
             let errorMessage = `HTTP error! Status: ${response.status}. / ¡Error HTTP! Estado: ${response.status}. `;
             if (typeof errorData === 'string') {
                 errorMessage += `Response: ${errorData} / Respuesta: ${errorData}`;
@@ -295,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error(errorMessage);
           });
         }
-        return response.json();
+        return response.json(); // Only parse as JSON if response is OK
       })
       .then(data => {
         console.log('Successfully PATCHed row via SheetBest: / Fila PATCHADA con éxito vía SheetBest:', data);
