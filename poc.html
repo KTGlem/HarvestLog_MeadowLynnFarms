@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SheetDB Update POC</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        input, button { padding: 10px; margin-bottom: 10px; }
+        .status { margin-top: 20px; font-weight: bold; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>SheetDB Update Proof of Concept</h1>
+
+    <p>This POC will attempt to update a specific row (UID: <span id="pocUidDisplay"></span>) in your Google Sheet.</p>
+    <p>It will change the 'Assignee(s)' column to the value you enter below, and set 'Status' to 'POC Updated'.</p>
+
+    <label for="assigneeInput">New Assignee Name:</label><br>
+    <input type="text" id="assigneeInput" value="Test Assignee"><br>
+
+    <button id="updateButton">Update Row</button>
+
+    <div class="status" id="statusMessage"></div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const SHEETBEST_CONNECTION_URL = 'https://sheetdb.io/api/v1/3rydewkqa9q5a';
+        const TARGET_UID = '4'; // <<< IMPORTANT: Replace with the actual UID from your test row
+
+        // --- DOM Elements ---
+        const pocUidDisplay = document.getElementById('pocUidDisplay');
+        const assigneeInput = document.getElementById('assigneeInput');
+        const updateButton = document.getElementById('updateButton');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // --- Display target UID ---
+        pocUidDisplay.textContent = TARGET_UID;
+
+        // --- Update Function ---
+        updateButton.addEventListener('click', async () => {
+            const newAssignee = assigneeInput.value;
+
+            if (!newAssignee) {
+                statusMessage.className = 'status error';
+                statusMessage.textContent = 'Please enter a new assignee name.';
+                return;
+            }
+
+            statusMessage.className = 'status';
+            statusMessage.textContent = 'Attempting to update...';
+
+            const dataToUpdate = {
+                'Assignee(s)': newAssignee,
+                'Status': 'POC Updated' // Set a clear status for POC
+            };
+
+            const updateUrl = `<span class="math-inline">\{SHEETBEST\_CONNECTION\_URL\}/UID\=</span>{encodeURIComponent(TARGET_UID)}`;
+
+            console.log('Sending PATCH request to:', updateUrl);
+            console.log('With data:', JSON.stringify(dataToUpdate));
+
+            try {
+                const response = await fetch(updateUrl, {
+                    method: 'PATCH',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 'X-Api-Key': 'YOUR_SHEETBEST_API_KEY' // Uncomment if you have an API key configured for SheetDB
+                    },
+                    body: JSON.stringify(dataToUpdate)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text(); // Read once
+                    let errorMessage = `HTTP error! Status: ${response.status}. `;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage += `Error: ${errorData.message || JSON.stringify(errorData)}`;
+                    } catch (e) {
+                        errorMessage += `Response: ${errorText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                console.log('SheetDB response:', result);
+                statusMessage.className = 'status success';
+                statusMessage.textContent = 'Successfully updated! Check your Google Sheet.';
+
+            } catch (error) {
+                console.error('Error during update:', error);
+                statusMessage.className = 'status error';
+                statusMessage.textContent = `Failed to update: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
