@@ -1,12 +1,14 @@
 // --------------------
 // CONFIGURATION
 // --------------------
+// It seems you're using SheetDB. Ensure this URL is correct for your SheetDB API.
 const SHEET_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMQfiXLy46WD1l7r2LA0OA5Kf6wnfwYdTX5TpUaj2nP4NxG__dSkiiTWj4ZzjEsCGodJW02BLXUCqW/pub?gid=157996468&single=true&output=csv';
+// Your SheetDB API endpoint for updates/reads.
 const SHEETBEST_CONNECTION_URL = 'https://sheetdb.io/api/v1/3rydewkqa9q5a';
 
 let currentRow = null;
 let allTasks = [];
-let taskMap = {};
+let taskMap = {}; // Will map UID to task object
 
 // --------------------
 // UTILITY FUNCTIONS
@@ -77,7 +79,7 @@ function openForm(taskUID) {
     <span>Online / En línea: ${task['Online'] || 0}</span>
   `;
 
-  // Pre-fill fields with existing data - KEYS UPDATED TO MATCH NEW GOOGLE SHEET HEADERS
+  // Pre-fill fields with existing data - KEYS UPDATED TO MATCH YOUR GOOGLE SHEET HEADERS
   document.getElementById('assignee').value = task['Assignee'] || '';
   document.getElementById('harvestTime').value = task['Time to Harvest'] || ''; // Changed from 'Time to Harvest (min)'
   document.getElementById('weight').value = task['Harvest Weight kg'] || '';    // Changed from 'Harvest Weight (kg)' to 'Harvest Weight kg'
@@ -153,7 +155,7 @@ fetch(SHEET_DATA_URL)
           obj[key] = value;
         }
       });
-      obj._row = i + 2;
+      obj._row = i + 2; // This _row is for reference, not directly used for SheetDB update
       return obj;
     });
 
@@ -172,7 +174,7 @@ fetch(SHEET_DATA_URL)
 
     taskMap = {};
     allTasks.forEach(t => {
-      taskMap[t['UID']] = t;
+      taskMap[t['UID']] = t; // Use 'UID' as the key for taskMap
     });
 
     const event = new Event('tasksLoaded');
@@ -255,24 +257,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const dataToUpdate = {};
-    // Ensure these keys EXACTLY match your Google Sheet column headers
-    if (assignee) dataToUpdate['Assignee'] = assignee;
-    if (harvestTime) dataToUpdate['Time to Harvest'] = harvestTime;        // Updated key
-    if (weight) dataToUpdate['Harvest Weight kg'] = weight;              // Updated key
-    if (washPackTime) dataToUpdate['Time to Wash & Pack'] = washPackTime; // Updated key
-    if (notes) dataToUpdate['Field Crew Note'] = notes;
+    if (assignee) dataToUpdate['Assignee'] = assignee; // Corrected to 'Assignee' based on sheet
+    if (harvestTime) dataToUpdate['Time to Harvest'] = harvestTime;        // Matches new header
+    if (weight) dataToUpdate['Harvest Weight kg'] = weight;              // Matches new header
+    if (washPackTime) dataToUpdate['Time to Wash & Pack'] = washPackTime; // Matches new header
+    if (notes) dataToUpdate['Field Crew Note'] = notes;               // Matches new header
 
     if (requireAllFields) {
       dataToUpdate['Status'] = 'Completed';
-      dataToUpdate['Harvest Date'] = new Date().toISOString().split('T')[0];
+      dataToUpdate['Harvest Date'] = new Date().toISOString().split('T')[0]; // Set Harvest Date to completion date
     } else if (assignee) {
       dataToUpdate['Status'] = 'Assigned';
     } else {
-      dataToUpdate['Status'] = '';
+      dataToUpdate['Status'] = ''; // Clear status if nothing else is updated and assignee is empty
     }
 
     const taskUID = currentRow['UID'];
-    const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID/${encodeURIComponent(taskUID)}`;
+    const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID/${encodeURIComponent(taskUID)}`; // SheetDB update by UID
     console.log("Update URL for SheetDB (using UID): / URL de actualización para SheetDB (usando UID):", updateUrl);
     console.log('Body being sent to SheetDB for PATCH: / Cuerpo enviado a SheetDB para PATCH:', JSON.stringify(dataToUpdate));
 
@@ -284,22 +285,22 @@ document.addEventListener('DOMContentLoaded', () => {
     })
       .then(response => {
         if (!response.ok) {
+          // Attempt to read the error body for more details
           return response.text().then(text => {
             let errorData;
             try {
-                errorData = JSON.parse(text);
+                errorData = JSON.parse(text); // Try parsing as JSON
             } catch (e) {
-                errorData = text;
+                errorData = text; // If it's not JSON, use raw text
             }
-
-            let errorMessage = `HTTP error! Status: ${response.status}. / ¡Error HTTP! Estado: ${response.status}. `;
+            let errorMessage = `HTTP error! Status: ${response.status}. `;
             if (typeof errorData === 'string') {
-                errorMessage += `Response: ${errorData} / Respuesta: ${errorData}`;
+                errorMessage += `Response: ${errorData}`;
             } else if (errorData && (errorData.message || errorData.detail)) {
-                errorMessage += `Error: ${errorData.message || errorData.detail} / Error: ${errorData.message || errorData.detail}`;
-                if(errorData.errors) errorMessage += ` Details: ${JSON.stringify(errorData.errors)} / Detalles: ${JSON.stringify(errorData.errors)}`;
+                errorMessage += `Error: ${errorData.message || errorData.detail}`;
+                if(errorData.errors) errorMessage += ` Details: ${JSON.stringify(errorData.errors)}`;
             } else {
-                errorMessage += `Could not parse error response from SheetDB. Raw: ${JSON.stringify(errorData)} / No se pudo analizar la respuesta de error de SheetDB. Crudo: ${JSON.stringify(errorData)}`;
+                errorMessage += `Could not parse error response. Raw: ${JSON.stringify(errorData)}`;
             }
             throw new Error(errorMessage);
           });
@@ -310,23 +311,28 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Successfully PATCHed row via SheetDB: / Fila PATCHADA con éxito vía SheetDB:', data);
         alert('Task updated successfully via SheetDB! / ¡Tarea actualizada con éxito vía SheetDB!');
 
-        const fetchUpdatedTaskUrl = `${SHEETBEST_CONNECTION_URL}/UID/${encodeURIComponent(taskUID)}`;
+        // CRITICAL FIX: Use SheetDB's correct GET search endpoint for re-fetching
+        const fetchUpdatedTaskUrl = `${SHEETBEST_CONNECTION_URL}/search?UID=${encodeURIComponent(taskUID)}`;
+        console.log("Re-fetching URL for SheetDB: / URL de re-obtención para SheetDB:", fetchUpdatedTaskUrl);
+
         return fetch(fetchUpdatedTaskUrl)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status} when re-fetching updated task.`);
                 return res.json();
             })
             .then(updatedTasks => {
-                const updatedRow = updatedTasks[0];
+                const updatedRow = updatedTasks[0]; // SheetDB returns an array, take the first item
                 if (updatedRow) {
+                    // Update the allTasks array and taskMap with the fresh data
                     const index = allTasks.findIndex(t => t['UID'] === updatedRow['UID']);
                     if (index !== -1) {
                         allTasks[index] = updatedRow;
                     }
                     taskMap[updatedRow['UID']] = updatedRow;
 
-                    currentRow = updatedRow;
+                    currentRow = updatedRow; // Update currentRow with fresh data
 
+                    // Re-render tasks for the current date, filtering out completed tasks
                     const selectedDate = document.getElementById('date-selector').value;
                     const tasksToFilter = Array.isArray(allTasks) ? allTasks : [];
                     const filteredTasks = tasksToFilter.filter(row => {
@@ -335,10 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     renderTasks(filteredTasks);
 
-                    openForm(updatedRow['UID']);
+                    openForm(updatedRow['UID']); // Reopen the form with fresh data
                 } else {
                     console.warn("Updated task not found on re-fetch. Reloading page. / Tarea actualizada no encontrada al volver a buscar. Recargando página.");
-                    location.reload();
+                    location.reload(); // Fallback to full reload if re-fetch fails
                 }
             });
       })
