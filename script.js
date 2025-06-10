@@ -1,14 +1,12 @@
 // --------------------
 // CONFIGURATION
 // --------------------
-// Your SheetDB URL and GID for CSV export
 const SHEET_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMQfiXLy46WD1l7r2LA0OA5Kf6wnfwYdTX5TpUaj2nP4NxG__dSkiiTWj4ZzjEsCGodJW02BLXUCqW/pub?gid=157996468&single=true&output=csv';
-// Your SheetDB API endpoint for updates
 const SHEETBEST_CONNECTION_URL = 'https://sheetdb.io/api/v1/3rydewkqa9q5a';
 
 let currentRow = null;
 let allTasks = [];
-let taskMap = {}; // Will map UID to task object
+let taskMap = {};
 
 // --------------------
 // UTILITY FUNCTIONS
@@ -24,7 +22,7 @@ function normalizeDate(d) {
       );
   } catch (error) {
     console.error("Error normalizing date: / Error al normalizar fecha:", d, error);
-    return ''; // Return an empty string or a specific error indicator
+    return '';
   }
 }
 
@@ -43,7 +41,6 @@ function renderTasks(tasksToRender) {
   tasksToRender.forEach(task => {
     const div = document.createElement('div');
     div.className = 'task-card';
-    // Changed openForm to use task['UID'] for unique identification as per script_UID.js
     div.innerHTML = `
       <strong>${task['Crop'] || 'N/A'}</strong><br>
       <strong>Location / Ubicación:</strong> ${task['Location'] || '-'}<br>
@@ -58,15 +55,14 @@ function renderTasks(tasksToRender) {
 // --------------------
 // RENDER: DETAIL VIEW
 // --------------------
-// Modified openForm to accept UID instead of rowId, as per script_UID.js
 function openForm(taskUID) {
-  const task = allTasks.find(t => t['UID'] === taskUID); // Find task by UID
+  const task = allTasks.find(t => t['UID'] === taskUID);
   if (!task) {
       console.error("Task not found for UID: / Tarea no encontrada para UID:", taskUID);
       return;
   }
 
-  currentRow = task; // Set currentRow to the found task object
+  currentRow = task;
   document.getElementById('detail-title').innerText = task['Crop'] || 'N/A';
   document.getElementById('detail-location').innerText = task['Location'] || '-';
   document.getElementById('detail-quantity').innerText = `${task['Units to Harvest'] || 'N/A'} ${task['Harvest Units'] || ''}`;
@@ -81,12 +77,12 @@ function openForm(taskUID) {
     <span>Online / En línea: ${task['Online'] || 0}</span>
   `;
 
-  // Pre-fill fields with existing data
-  document.getElementById('assignee').value = task['Assignee'] || ''; // Changed from 'Assignee(s)' to 'Assignee' as per script_UID.js
-  document.getElementById('harvestTime').value = task['Time to Harvest (min)'] || '';
-  document.getElementById('weight').value = task['Harvest Weight (kg)'] || '';
-  document.getElementById('washPackTime').value = task['Time to Wash & Pack (mins)'] || '';
-  document.getElementById('notes').value = task['Field Crew Notes'] || '';
+  // Pre-fill fields with existing data - KEYS UPDATED TO MATCH NEW GOOGLE SHEET HEADERS
+  document.getElementById('assignee').value = task['Assignee'] || '';
+  document.getElementById('harvestTime').value = task['Time to Harvest'] || ''; // Changed from 'Time to Harvest (min)'
+  document.getElementById('weight').value = task['Harvest Weight kg'] || '';    // Changed from 'Harvest Weight (kg)' to 'Harvest Weight kg'
+  document.getElementById('washPackTime').value = task['Time to Wash & Pack'] || ''; // Changed from 'Time to Wash & Pack (mins)'
+  document.getElementById('notes').value = task['Field Crew Note'] || '';
 
   document.getElementById('detail-form').style.display = 'block';
 }
@@ -157,7 +153,7 @@ fetch(SHEET_DATA_URL)
           obj[key] = value;
         }
       });
-      obj._row = i + 2; // _row is still parsed for reference in taskMap
+      obj._row = i + 2;
       return obj;
     });
 
@@ -174,10 +170,9 @@ fetch(SHEET_DATA_URL)
 
     console.log('Filtered allTasks (excluding completed): / Tareas filtradas (excluyendo completadas):', JSON.parse(JSON.stringify(allTasks)));
 
-    // taskMap is now populated by 'UID' as per script_UID.js
     taskMap = {};
     allTasks.forEach(t => {
-      taskMap[t['UID']] = t; // Use 'UID' as the key for taskMap
+      taskMap[t['UID']] = t;
     });
 
     const event = new Event('tasksLoaded');
@@ -227,25 +222,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle 'Update' (partial or in-progress task update) - From script_SheetBest.js
   const updateBtn = document.getElementById('update-btn');
   if (updateBtn) {
     updateBtn.addEventListener('click', () => {
-      handleSubmit(false); // allow partial
+      handleSubmit(false);
     });
   }
 
-  // Handle 'Mark Completed' (requires all fields) - From script_SheetBest.js
   const completeBtn = document.getElementById('complete-btn');
   if (completeBtn) {
     completeBtn.addEventListener('click', () => {
-      handleSubmit(true); // require all
+      handleSubmit(true);
     });
   }
 
-  // Shared handler function for updates and completion - Adapted from script_SheetBest.js
   function handleSubmit(requireAllFields) {
-    // CRITICAL CHANGE: Use UID for currentRow check and API calls
     if (!currentRow || !currentRow['UID']) {
       console.error("Current task data is not available or 'UID' is missing. / Datos de la tarea actual no disponibles o falta 'UID'.");
       alert("Error: No task selected or task data is incomplete (missing UID). / Error: Ninguna tarea seleccionada o datos de la tarea incompletos (falta UID).");
@@ -264,26 +255,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const dataToUpdate = {};
-    // Use column names from your Google Sheet for SheetDB
-    if (assignee) dataToUpdate['Assignee'] = assignee; // Assumed 'Assignee' from script_UID.js
-    if (harvestTime) dataToUpdate['Time to Harvest (min)'] = harvestTime;
-    if (weight) dataToUpdate['Harvest Weight (kg)'] = weight;
-    if (washPackTime) dataToUpdate['Time to Wash & Pack (mins)'] = washPackTime;
-    if (notes) dataToUpdate['Field Crew Notes'] = notes;
+    // Ensure these keys EXACTLY match your Google Sheet column headers
+    if (assignee) dataToUpdate['Assignee'] = assignee;
+    if (harvestTime) dataToUpdate['Time to Harvest'] = harvestTime;        // Updated key
+    if (weight) dataToUpdate['Harvest Weight kg'] = weight;              // Updated key
+    if (washPackTime) dataToUpdate['Time to Wash & Pack'] = washPackTime; // Updated key
+    if (notes) dataToUpdate['Field Crew Note'] = notes;
 
     if (requireAllFields) {
       dataToUpdate['Status'] = 'Completed';
-      // Consider adding a 'Completion Date' column in your sheet if 'Harvest Date' is the planned date
-      dataToUpdate['Harvest Date'] = new Date().toISOString().split('T')[0]; // Set Harvest Date to completion date
-    } else if (assignee) { // If not completing but assigning, set status to Assigned
+      dataToUpdate['Harvest Date'] = new Date().toISOString().split('T')[0];
+    } else if (assignee) {
       dataToUpdate['Status'] = 'Assigned';
-    } else { // If nothing is being updated but form submitted, clear status.
+    } else {
       dataToUpdate['Status'] = '';
     }
 
-    // CRITICAL CHANGE FOR SHEETDB UPDATE: Use UID for identification
     const taskUID = currentRow['UID'];
-    const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID/${encodeURIComponent(taskUID)}`; // SheetDB update by UID
+    const updateUrl = `${SHEETBEST_CONNECTION_URL}/UID/${encodeURIComponent(taskUID)}`;
     console.log("Update URL for SheetDB (using UID): / URL de actualización para SheetDB (usando UID):", updateUrl);
     console.log('Body being sent to SheetDB for PATCH: / Cuerpo enviado a SheetDB para PATCH:', JSON.stringify(dataToUpdate));
 
@@ -294,14 +283,13 @@ document.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify(dataToUpdate)
     })
       .then(response => {
-        // FIX FOR "body stream already read" ERROR - From script_UID.js
         if (!response.ok) {
-          return response.text().then(text => { // Read body as text once
+          return response.text().then(text => {
             let errorData;
             try {
-                errorData = JSON.parse(text); // Attempt to parse as JSON
+                errorData = JSON.parse(text);
             } catch (e) {
-                errorData = text; // If not JSON, use raw text
+                errorData = text;
             }
 
             let errorMessage = `HTTP error! Status: ${response.status}. / ¡Error HTTP! Estado: ${response.status}. `;
@@ -316,15 +304,12 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error(errorMessage);
           });
         }
-        return response.json(); // Only parse as JSON if response is OK
+        return response.json();
       })
       .then(data => {
         console.log('Successfully PATCHed row via SheetDB: / Fila PATCHADA con éxito vía SheetDB:', data);
         alert('Task updated successfully via SheetDB! / ¡Tarea actualizada con éxito vía SheetDB!');
 
-        // Re-fetch the updated row to refresh the form
-        // SheetDB API might not return the updated row directly with PATCH,
-        // so a GET request on the same UID is needed to get the fresh data.
         const fetchUpdatedTaskUrl = `${SHEETBEST_CONNECTION_URL}/UID/${encodeURIComponent(taskUID)}`;
         return fetch(fetchUpdatedTaskUrl)
             .then(res => {
@@ -332,32 +317,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 return res.json();
             })
             .then(updatedTasks => {
-                // SheetDB returns an array even for single UID query
                 const updatedRow = updatedTasks[0];
                 if (updatedRow) {
-                    // Update the allTasks array and taskMap with the fresh data
                     const index = allTasks.findIndex(t => t['UID'] === updatedRow['UID']);
                     if (index !== -1) {
                         allTasks[index] = updatedRow;
                     }
                     taskMap[updatedRow['UID']] = updatedRow;
 
-                    currentRow = updatedRow; // Update currentRow with fresh data
+                    currentRow = updatedRow;
 
-                    // If the task was marked completed, it should disappear from the main list.
-                    // Re-render tasks for the current date.
                     const selectedDate = document.getElementById('date-selector').value;
                     const tasksToFilter = Array.isArray(allTasks) ? allTasks : [];
                     const filteredTasks = tasksToFilter.filter(row => {
                         const normalizedRowDate = normalizeDate(row['Harvest Date']);
-                        return normalizedRowDate === selectedDate && row['Status'] !== 'Completed'; // Filter out completed tasks
+                        return normalizedRowDate === selectedDate && row['Status'] !== 'Completed';
                     });
                     renderTasks(filteredTasks);
 
-                    closeForm(); // Close the form after update/completion
+                    openForm(updatedRow['UID']);
                 } else {
                     console.warn("Updated task not found on re-fetch. Reloading page. / Tarea actualizada no encontrada al volver a buscar. Recargando página.");
-                    location.reload(); // Fallback to full reload if re-fetch fails
+                    location.reload();
                 }
             });
       })
@@ -366,14 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Failed to update task: ' + error.message + '\nCheck console for details. / Falló la actualización de la tarea: ' + error.message + '\nConsultar consola para detalles.');
       });
   }
-
-  // Remove old submit button listener if it exists.
-  // const submit = document.getElementById('submit-btn');
-  // if (submit) {
-  //   submit.addEventListener('click', () => {
-  //     // Removed old single submit button logic.
-  //   });
-  // }
 
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) {
