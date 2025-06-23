@@ -72,11 +72,11 @@ function openForm(taskUID) {
   const breakdown = document.getElementById('sales-breakdown');
   breakdown.innerHTML = `
     <strong>Sales Breakdown / Desglose de Ventas:</strong>
-    <span>CSA / CSA: ${task['CSA'] || 0}</span>
-    <span>Parkdale Bins / Contenedores Parkdale: ${task['Parkdale Bins'] || 0}</span>
-    <span>Cobourg Farmers Market / Mercado de Agricultores de Cobourg: ${task['Cobourg Farmers Market'] || 0}</span>
-    <span>Kitchen / Cocina: ${task['Kitchen'] || 0}</span>
-    <span>Online / En línea: ${task['Online'] || 0}</span>
+    <span>CSA: ${task['CSA'] || 0}</span>
+    <span>Cider Keg: ${task['Cider Keg'] || 0}</span>
+    <span>Matz: ${task['Matz'] || 0}</span>
+    <spanGenerations: ${task['Generations'] || 0}</span>
+    <span>Online: ${task['Online'] || 0}</span>
   `;
 
   // Pre-fill fields with existing data - KEYS UPDATED TO MATCH YOUR GOOGLE SHEET HEADERS
