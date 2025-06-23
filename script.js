@@ -60,9 +60,12 @@ function renderTasks(tasksToRender) {
 function openForm(taskUID) {
   const task = allTasks.find(t => t['UID'] === taskUID);
   if (!task) {
-      console.error("Task not found for UID: / Tarea no encontrada para UID:", taskUID);
+      console.error("Task not found for UID:", taskUID);
       return;
   }
+
+  const breakdown = document.getElementById('sales-breakdown'); 
+
 
   currentRow = task;
   document.getElementById('detail-title').innerText = task['Crop'] || 'N/A';
