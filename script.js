@@ -69,14 +69,15 @@ function openForm(taskUID) {
   document.getElementById('detail-location').innerText = task['Location'] || '-';
   document.getElementById('detail-quantity').innerText = `${task['Units to Harvest'] || 'N/A'} ${task['Harvest Units'] || ''}`;
 
-  const breakdown = document.getElementById('sales-breakdown');
   breakdown.innerHTML = `
     <strong>Sales Breakdown / Desglose de Ventas:</strong>
-    <span>CSA: ${task['CSA'] || 0}</span>
-    <span>Cider Keg: ${task['Cider Keg'] || 0}</span>
-    <span>Matz: ${task['Matz'] || 0}</span>
-    <spanGenerations: ${task['Generations'] || 0}</span>
-    <span>Online: ${task['Online'] || 0}</span>
+    <div class="sales-grid">
+      <span>CSA: ${task['CSA'] || 0}</span>
+      <span>Cider Keg: ${task['Cider Keg'] || 0}</span>
+      <span>Matz: ${task['Matz'] || 0}</span>
+      <span>Generations: ${task['Generations'] || 0}</span>
+      <span>Online: ${task['Online'] || 0}</span>
+    </div>
   `;
 
   // Pre-fill fields with existing data - KEYS UPDATED TO MATCH YOUR GOOGLE SHEET HEADERS
